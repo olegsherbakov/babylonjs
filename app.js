@@ -1,8 +1,9 @@
 class Viewer {
   _canvas = null
   _engine = null
-  _baseScene = null
   _camera = null
+  _baseScene = null
+  _scenes = new Set()
 
   _createDefaultEngine() {
     return new BABYLON.Engine(this._canvas, true, {
@@ -28,7 +29,6 @@ class Viewer {
 
   _setBaseScene() {
     this._baseScene = new BABYLON.Scene(this._engine)
-
     this._camera = new BABYLON.ArcRotateCamera(
       `camera1`,
       -Math.PI / 2,
@@ -37,7 +37,6 @@ class Viewer {
       BABYLON.Vector3.Zero(),
       this._baseScene
     )
-
     this._camera.attachControl(this._canvas, true)
 
     const light = new BABYLON.HemisphericLight(
@@ -50,12 +49,19 @@ class Viewer {
 
     BABYLON.MeshBuilder.CreateGround(
       `ground`,
-      { width: 6, height: 6 },
+      { width: 11, height: 11 },
       this._baseScene
     )
+
+    this._baseScene.onPointerObservable.add((pointerInfo) => {
+      if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN) {
+        console.log(`#POINTERDOWN`)
+        console.log(`?pointerInfo`, pointerInfo)
+      }
+    })
   }
 
-  async render(canvas) {
+  render = async (canvas) => {
     if (!canvas) throw 'canvas should not be null.'
 
     this._canvas = canvas
@@ -63,23 +69,20 @@ class Viewer {
     await this._initEngine()
     await this._setBaseScene()
 
-    this._engine.runRenderLoop(() => {
-      if (this._baseScene.activeCamera) {
-        this._baseScene.render()
-      }
-    })
-  }
-
-  Append(glTFString) {
-    BABYLON.SceneLoader.Append(
-      ``,
-      glTFString,
-      this._baseScene,
-      function (newScene) {
-        console.log(`success Append, newScene`, newScene)
-      }
+    this._engine.runRenderLoop(
+      () => this._baseScene.activeCamera && this._baseScene.render()
     )
   }
+
+  Append = (glTFString) =>
+    BABYLON.SceneLoader.Append(``, glTFString, this._baseScene, (scene) =>
+      this._scenes.add(scene)
+    )
+
+  Clear = () =>
+    this._scenes.forEach(
+      (scene) => (scene.dispose(), this._scenes.delete(scene))
+    )
 }
 
 const viewer = new Viewer()
@@ -91,19 +94,19 @@ document.getElementById(`load-file`).addEventListener(
       files: [file],
     },
   }) => {
-    if (!file) throw 'file should not be null.'
+    const reader = new FileReader()
 
-    var reader = new FileReader()
-
-    reader.onload = function (e) {
-      console.log(`"${file.name}" is readed`)
-      const glTFString = e.target.result
-
-      viewer.Append(glTFString)
-    }
+    reader.onload = (e) => (
+      console.log(`"${file.name}" was append successfully`),
+      viewer.Append(e.target.result)
+    )
 
     reader.readAsDataURL(file)
   }
 )
 
 viewer.render(document.getElementById(`renderCanvas`))
+
+document.getElementById(`clearCanvas`).addEventListener(`click`, viewer.Clear)
+
+console.log(viewer)
