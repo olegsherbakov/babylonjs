@@ -1,72 +1,109 @@
-var canvas = document.getElementById("renderCanvas");
+class Viewer {
+  _canvas = null
+  _engine = null
+  _baseScene = null
+  _camera = null
 
-var engine = null;
-var scene = null;
-var sceneToRender = null;
-var createDefaultEngine = function() {
-  return new BABYLON.Engine(
-    canvas,
-    true,
-    {
+  _createDefaultEngine() {
+    return new BABYLON.Engine(this._canvas, true, {
       preserveDrawingBuffer: true,
+      disableWebGL2Support: false,
       stencil: true,
-      disableWebGL2Support: false
-    }
-  )
-}
-var initEngine = async function() {
-  var asyncEngineCreation = async function() {
-    try {
-      return createDefaultEngine();
-    } catch(e) {
-      console.log("the available createEngine function failed. Creating the default engine instead");
-      return createDefaultEngine();
-    }
+    })
   }
 
-  engine = await asyncEngineCreation();
-  if (!engine) throw 'engine should not be null.';
-}
-var createScene = function () {
-  scene = new BABYLON.Scene(engine)
-  // demo
-  var camera = new BABYLON.FreeCamera('camera1', new BABYLON.Vector3(0, 5, -10), scene)
-  camera.setTarget(BABYLON.Vector3.Zero())
-  camera.attachControl(canvas, true)
-  var light = new BABYLON.HemisphericLight('light', new BABYLON.Vector3(0, 1, 0), scene)
-  light.intensity = 0.7
-  var sphere = BABYLON.MeshBuilder.CreateSphere('sphere', { diameter: 2, segments: 32 }, scene)
-  sphere.position.y = 1
-  BABYLON.MeshBuilder.CreateGround('ground', { width: 6, height: 6 }, scene) // ground
-}
-var loadFile = function({ target: { files: [file] } }) {
-  if (!file) throw 'file should not be null.'
+  async _initEngine() {
+    const asyncEngineCreation = async () => {
+      try {
+        return this._createDefaultEngine()
+      } catch (e) {
+        return this._createDefaultEngine()
+      }
+    }
 
-  var reader = new FileReader()
+    this._engine = await asyncEngineCreation()
 
-  reader.onload = function(e) {
-    console.log(`${file.name} is readed`)
-    console.log(`?e.target.result`, e.target.result)
-
-    /*BABYLON.SceneLoader.Load("./", url, engine, function(scene) {
-      resolve(engine, scene)
-    })*/
+    if (!this._engine) throw 'engine should not be null.'
   }
 
-  reader.readAsDataURL(file)
-}
+  _setBaseScene() {
+    this._baseScene = new BABYLON.Scene(this._engine)
 
-document.getElementById('load-file')
-  .addEventListener('change', loadFile)
+    this._camera = new BABYLON.ArcRotateCamera(
+      `camera1`,
+      -Math.PI / 2,
+      1,
+      10,
+      BABYLON.Vector3.Zero(),
+      this._baseScene
+    )
 
-initEngine()
-  .then(() => {
-    createScene()
+    this._camera.attachControl(this._canvas, true)
 
-    sceneToRender = scene
-    engine.runRenderLoop(() => {
-      if (sceneToRender && sceneToRender.activeCamera) {
-        sceneToRender.render()
+    const light = new BABYLON.HemisphericLight(
+      `light`,
+      new BABYLON.Vector3(0, 1, 0),
+      this._baseScene
+    )
+
+    light.intensity = 0.8
+
+    BABYLON.MeshBuilder.CreateGround(
+      `ground`,
+      { width: 6, height: 6 },
+      this._baseScene
+    )
+  }
+
+  async render(canvas) {
+    if (!canvas) throw 'canvas should not be null.'
+
+    this._canvas = canvas
+
+    await this._initEngine()
+    await this._setBaseScene()
+
+    this._engine.runRenderLoop(() => {
+      if (this._baseScene.activeCamera) {
+        this._baseScene.render()
       }
     })
-  })
+  }
+
+  Append(glTFString) {
+    BABYLON.SceneLoader.Append(
+      ``,
+      glTFString,
+      this._baseScene,
+      function (newScene) {
+        console.log(`success Append, newScene`, newScene)
+      }
+    )
+  }
+}
+
+const viewer = new Viewer()
+
+document.getElementById(`load-file`).addEventListener(
+  `change`,
+  ({
+    target: {
+      files: [file],
+    },
+  }) => {
+    if (!file) throw 'file should not be null.'
+
+    var reader = new FileReader()
+
+    reader.onload = function (e) {
+      console.log(`"${file.name}" is readed`)
+      const glTFString = e.target.result
+
+      viewer.Append(glTFString)
+    }
+
+    reader.readAsDataURL(file)
+  }
+)
+
+viewer.render(document.getElementById(`renderCanvas`))
