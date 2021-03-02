@@ -2,6 +2,7 @@ class Viewer {
   _canvas = null
   _engine = null
   _camera = null
+  _light = null
   _baseScene = null
   _scenes = new Set()
   _meshes = new Map()
@@ -33,7 +34,7 @@ class Viewer {
   _setBaseScene() {
     this._baseScene = new BABYLON.Scene(this._engine)
     this._camera = new BABYLON.ArcRotateCamera(
-      `camera1`,
+      `camera`,
       -Math.PI / 2,
       1,
       10,
@@ -41,38 +42,29 @@ class Viewer {
       this._baseScene
     )
     this._camera.attachControl(this._canvas, true)
-
-    const light = new BABYLON.HemisphericLight(
+    this._light = new BABYLON.HemisphericLight(
       `light`,
       new BABYLON.Vector3(0, 1, 0),
       this._baseScene
     )
-
-    light.intensity = 0.8
-
+    this._light.intensity = 0.8
     this._highlightMaterial = new BABYLON.StandardMaterial(
       `highlight`,
       this._baseScene
     )
-
     this._highlightMaterial.diffuseColor = new BABYLON.Color3(1, 0, 1)
     this._highlightMaterial.specularColor = new BABYLON.Color3(0.5, 0.6, 0.87)
     this._highlightMaterial.emissiveColor = new BABYLON.Color3(1, 1, 1)
     this._highlightMaterial.ambientColor = new BABYLON.Color3(0.23, 0.98, 0.53)
-
     this._baseScene.onPointerObservable.add(this._onPointer)
   }
 
   render = async (canvas, tree) => {
     if (!canvas) throw 'canvas should not be null.'
-    if (!tree) throw 'canvas should not be null.'
-
     this._canvas = canvas
     this._tree = tree
-
     await this._initEngine()
     await this._setBaseScene()
-
     this._engine.runRenderLoop(
       () => this._baseScene.activeCamera && this._baseScene.render()
     )
@@ -105,7 +97,6 @@ class Viewer {
   _pickMesh = (mesh) => {
     if (this._meshes.has(mesh.uniqueId)) {
       mesh.material = this._meshes.get(mesh.uniqueId)
-
       this._meshes.delete(mesh.uniqueId)
     } else {
       this._meshes.set(mesh.uniqueId, mesh.material)
@@ -114,6 +105,10 @@ class Viewer {
   }
 
   _rebuildNodes = () => {
+    if (!this._tree) {
+      return
+    }
+
     const getNodes = (nodes) =>
       nodes.map(({ uniqueId, id, name, _children }) => ({
         children: Array.isArray(_children) ? getNodes(_children) : [],
@@ -127,7 +122,6 @@ class Viewer {
 
   _renderTree = (nodes) => {
     this._tree.innerHTML = ``
-
     nodes.forEach((node) => this._renderNode(this._tree, node))
   }
 
@@ -154,10 +148,9 @@ class Viewer {
     if (node.children.length) {
       const children = document.createElement(`div`)
 
+      node.children.forEach((node) => this._renderNode(children, node))
       children.className = `children`
       div.appendChild(children)
-
-      node.children.forEach((node) => this._renderNode(children, node))
     }
 
     parentNode.appendChild(div)
@@ -182,13 +175,11 @@ class Viewer {
     const uniqueId = +target.getAttribute(`data-id`)
     const mesh = this._baseScene.getMeshByUniqueID(uniqueId)
 
-    if (mesh) {
-      this._pickMesh(mesh)
-    }
+    mesh && this._pickMesh(mesh)
   }
 }
 
-const $ = id => document.getElementById(id)
+const $ = (id) => document.getElementById(id)
 const viewer = new Viewer()
 
 $(`load-file`).addEventListener(
