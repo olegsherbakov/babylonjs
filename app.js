@@ -35,7 +35,7 @@ class Viewer {
       `camera1`,
       -Math.PI / 2,
       1,
-      2,
+      10,
       BABYLON.Vector3.Zero(),
       this._baseScene
     )
@@ -68,15 +68,19 @@ class Viewer {
   }
 
   Append = glTFString =>
-    BABYLON.SceneLoader.Append(
-      ``,
-      glTFString,
-      this._baseScene,
-      scene => (this._scenes.add(scene), this._rebuildNodes())
-    )
+    BABYLON.SceneLoader.Append(``, glTFString, this._baseScene, scene => {
+      scene.meshes.forEach(
+        mesh => (mesh.scaling = new BABYLON.Vector3(4, 4, 4))
+      )
+      this._scenes.add(scene)
+      this._rebuildNodes()
+    })
 
   Clear = () =>
-    this._scenes.forEach(scene => (scene.dispose(), this._scenes.delete(scene)))
+    this._scenes.forEach(scene => {
+      scene.meshes.forEach(mesh => mesh.dispose())
+      this._scenes.delete(scene)
+    })
 
   _onPointer = pointerInfo => {
     if (
@@ -191,10 +195,10 @@ document
   .addEventListener(`change`, ({ target: { files: [file] } }) => {
     const reader = new FileReader()
 
-    reader.onload = e => (
-      console.log(`"${file.name}" was append successfully`),
+    reader.onload = e => {
+      console.log(`"${file.name}" was append successfully`)
       viewer.Append(e.target.result)
-    )
+    }
 
     reader.readAsDataURL(file)
   })
