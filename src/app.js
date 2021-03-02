@@ -6,6 +6,7 @@ class Viewer {
   _scenes = new Set()
   _meshes = new Map()
   _tree = null
+  _highlightMaterial = null
 
   _createDefaultEngine() {
     return new BABYLON.Engine(this._canvas, true, {
@@ -49,6 +50,16 @@ class Viewer {
 
     light.intensity = 0.8
 
+    this._highlightMaterial = new BABYLON.StandardMaterial(
+      `highlight`,
+      this._baseScene
+    )
+
+    this._highlightMaterial.diffuseColor = new BABYLON.Color3(1, 0, 1)
+    this._highlightMaterial.specularColor = new BABYLON.Color3(0.5, 0.6, 0.87)
+    this._highlightMaterial.emissiveColor = new BABYLON.Color3(1, 1, 1)
+    this._highlightMaterial.ambientColor = new BABYLON.Color3(0.23, 0.98, 0.53)
+
     this._baseScene.onPointerObservable.add(this._onPointer)
   }
 
@@ -67,22 +78,22 @@ class Viewer {
     )
   }
 
-  Append = glTFString =>
-    BABYLON.SceneLoader.Append(``, glTFString, this._baseScene, scene => {
+  Append = (glTFString) =>
+    BABYLON.SceneLoader.Append(``, glTFString, this._baseScene, (scene) => {
       scene.meshes.forEach(
-        mesh => (mesh.scaling = new BABYLON.Vector3(4, 4, 4))
+        (mesh) => (mesh.scaling = new BABYLON.Vector3(4, 4, 4))
       )
       this._scenes.add(scene)
       this._rebuildNodes()
     })
 
   Clear = () =>
-    this._scenes.forEach(scene => {
-      scene.meshes.forEach(mesh => mesh.dispose())
+    this._scenes.forEach((scene) => {
+      scene.meshes.forEach((mesh) => mesh.dispose())
       this._scenes.delete(scene)
     })
 
-  _onPointer = pointerInfo => {
+  _onPointer = (pointerInfo) => {
     if (
       pointerInfo.type === BABYLON.PointerEventTypes.POINTERDOWN &&
       pointerInfo.pickInfo.pickedMesh
@@ -91,30 +102,19 @@ class Viewer {
     }
   }
 
-  _pickMesh = mesh => {
+  _pickMesh = (mesh) => {
     if (this._meshes.has(mesh.uniqueId)) {
       mesh.material = this._meshes.get(mesh.uniqueId)
 
       this._meshes.delete(mesh.uniqueId)
     } else {
       this._meshes.set(mesh.uniqueId, mesh.material)
-
-      const highlightMeterial = new BABYLON.StandardMaterial(
-        `highlight`,
-        this._baseScene
-      )
-
-      highlightMeterial.diffuseColor = new BABYLON.Color3(1, 0, 1)
-      highlightMeterial.specularColor = new BABYLON.Color3(0.5, 0.6, 0.87)
-      highlightMeterial.emissiveColor = new BABYLON.Color3(1, 1, 1)
-      highlightMeterial.ambientColor = new BABYLON.Color3(0.23, 0.98, 0.53)
-
-      mesh.material = highlightMeterial
+      mesh.material = this._highlightMaterial
     }
   }
 
   _rebuildNodes = () => {
-    const getNodes = nodes =>
+    const getNodes = (nodes) =>
       nodes.map(({ uniqueId, id, name, _children }) => ({
         children: Array.isArray(_children) ? getNodes(_children) : [],
         uniqueId,
@@ -125,10 +125,10 @@ class Viewer {
     this._renderTree(getNodes(this._baseScene.rootNodes))
   }
 
-  _renderTree = nodes => {
+  _renderTree = (nodes) => {
     this._tree.innerHTML = ``
 
-    nodes.forEach(node => this._renderNode(this._tree, node))
+    nodes.forEach((node) => this._renderNode(this._tree, node))
   }
 
   _renderNode = (parentNode, node) => {
@@ -157,7 +157,7 @@ class Viewer {
       children.className = `children`
       div.appendChild(children)
 
-      node.children.forEach(node => this._renderNode(children, node))
+      node.children.forEach((node) => this._renderNode(children, node))
     }
 
     parentNode.appendChild(div)
@@ -188,26 +188,29 @@ class Viewer {
   }
 }
 
+const $ = id => document.getElementById(id)
 const viewer = new Viewer()
 
-document
-  .getElementById(`load-file`)
-  .addEventListener(`change`, ({ target: { files: [file] } }) => {
+$(`load-file`).addEventListener(
+  `change`,
+  ({
+    target: {
+      files: [file],
+    },
+  }) => {
     const reader = new FileReader()
 
-    reader.onload = e => {
+    reader.onload = (e) => {
       console.log(`"${file.name}" was append successfully`)
       viewer.Append(e.target.result)
     }
 
     reader.readAsDataURL(file)
-  })
-
-viewer.render(
-  document.getElementById(`renderCanvas`),
-  document.getElementById(`nodesTree`)
+  }
 )
 
-document.getElementById(`clearCanvas`).addEventListener(`click`, viewer.Clear)
+viewer.render($(`renderCanvas`), $(`nodesTree`))
+
+$(`clearCanvas`).addEventListener(`click`, viewer.Clear)
 
 console.log(viewer)
